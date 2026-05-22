@@ -195,12 +195,12 @@ export default function ChatModal({
         {/* Header */}
         <div className="p-5 border-b border-natural-light bg-natural-cream flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-sage/10 p-2.5 rounded-xl text-sage">
+            <div className="bg-natural-olive/10 p-2.5 rounded-xl text-natural-olive">
               <MessageSquare className="w-5 h-5" />
             </div>
             <div>
               <h3 className="font-black text-natural-dark text-base leading-tight truncate max-w-[260px]">{itemTitle}</h3>
-              <p className="text-xs text-natural-muted">Coordinating with <span className="font-semibold text-sage">{reporterName}</span></p>
+              <p className="text-xs text-natural-muted">Coordinating with <span className="font-semibold text-natural-olive">{reporterName}</span></p>
             </div>
           </div>
           <button 
@@ -213,8 +213,8 @@ export default function ChatModal({
 
         {/* Sandbox Indicator Banner */}
         {isSandbox && (
-          <div className="bg-sage/10 text-sage-dark px-5 py-2 text-xs font-semibold flex items-center gap-1.5 border-b border-sage/10">
-            <ShieldAlert className="w-4 h-4 text-sage" />
+          <div className="bg-natural-olive/10 text-natural-olive px-5 py-2 text-xs font-semibold flex items-center gap-1.5 border-b border-natural-olive/10">
+            <ShieldAlert className="w-4 h-4 text-natural-olive" />
             Demo Sandbox Mode Active: Simulated messaging.
           </div>
         )}
@@ -223,11 +223,11 @@ export default function ChatModal({
         <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-[#f8f6f0]">
           {loading ? (
             <div className="h-full flex items-center justify-center">
-              <div className="w-8 h-8 border-4 border-sage border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-8 h-8 border-4 border-natural-olive border-t-transparent rounded-full animate-spin"></div>
             </div>
           ) : messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-6 text-natural-muted">
-              <MessageSquare className="w-10 h-10 mb-2 opacity-50 text-sage" />
+              <MessageSquare className="w-10 h-10 mb-2 opacity-50 text-natural-olive" />
               <p className="text-sm font-semibold">No messages yet.</p>
               <p className="text-xs">Start coordinating the return below!</p>
             </div>
@@ -242,12 +242,12 @@ export default function ChatModal({
                   <span className="text-[10px] text-natural-muted mb-1 px-1">{msg.sender_name}</span>
                   <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${
                     isCurrentUser 
-                      ? 'bg-sage text-white rounded-tr-none' 
+                      ? 'bg-natural-olive text-white rounded-tr-none' 
                       : 'bg-white text-natural-dark border border-natural-light rounded-tl-none'
                   }`}>
                     <p className="leading-normal break-words">{msg.content}</p>
                     <span className={`block text-[9px] text-right mt-1.5 ${
-                      isCurrentUser ? 'text-sage-light' : 'text-natural-muted'
+                      isCurrentUser ? 'text-white/80' : 'text-natural-muted'
                     }`}>
                       {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
@@ -266,11 +266,11 @@ export default function ChatModal({
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type a message to coordinate..."
-            className="flex-1 px-4 py-3 rounded-xl border border-natural-light text-sm focus:outline-none focus:border-sage focus:ring-1 focus:ring-sage bg-natural-cream text-natural-dark transition-shadow"
+            className="flex-1 px-4 py-3 rounded-xl border border-natural-light text-sm focus:outline-none focus:border-natural-olive focus:ring-1 focus:ring-natural-olive bg-natural-cream text-natural-dark transition-shadow"
           />
           <button
             type="submit"
-            className="bg-sage text-white p-3 rounded-xl hover:bg-sage-dark transition-colors flex items-center justify-center shadow-sm disabled:opacity-50"
+            className="bg-natural-olive text-white p-3 rounded-xl hover:bg-natural-dark transition-colors flex items-center justify-center shadow-sm disabled:opacity-50"
             disabled={!newMessage.trim()}
           >
             <Send className="w-5 h-5" />
