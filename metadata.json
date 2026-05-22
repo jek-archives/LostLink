@@ -1,0 +1,6 @@
+{
+  "name": "LostLink",
+  "description": "A centralized lost and found platform for campus students to report and reclaim items.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
