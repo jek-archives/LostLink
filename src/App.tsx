@@ -799,33 +799,152 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {!user ? (
-          <section className="py-20 text-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
-             <div className="max-w-2xl mx-auto">
-              <h2 className="text-5xl font-light text-natural-dark font-serif mb-6 leading-tight">
-                Connect. <span className="italic">Report.</span> <span className="text-natural-olive">Reclaim.</span>
-              </h2>
-              <p className="text-lg text-natural-secondary mb-10 leading-relaxed">
-                LostLink is the centralized hub for our campus community. Join us to help fellow students find their lost belongings.
-              </p>
-              <div className="flex flex-col sm:flex-row justify-center gap-4">
-                <button
-                  onClick={handleLogin}
-                  className="bg-natural-olive hover:bg-natural-dark text-white px-8 py-4 rounded-full font-bold shadow-xl shadow-natural-olive/20 transition-all flex items-center justify-center gap-3 text-lg"
-                >
-                  Get Started with Campus Email
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-                {showSandbox && (
+          <div className="space-y-24 py-10">
+            {/* Hero Section */}
+            <section className="relative overflow-hidden rounded-[3.5rem] bg-natural-light border border-natural-border px-8 py-20 md:py-28 md:px-16 flex flex-col lg:flex-row items-center gap-12 shadow-sm">
+              {/* Background ambient light */}
+              <div className="absolute top-0 right-0 w-96 h-96 bg-natural-secondary/20 rounded-full blur-[80px] -z-10" />
+              <div className="absolute bottom-0 left-0 w-96 h-96 bg-natural-olive/5 rounded-full blur-[100px] -z-10" />
+
+              <motion.div 
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8 }}
+                className="flex-1 space-y-8 text-center lg:text-left animate-in fade-in duration-700"
+              >
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-natural-olive/10 text-natural-olive font-bold text-xs uppercase tracking-widest">
+                  <span className="w-2 h-2 rounded-full bg-natural-olive animate-pulse" />
+                  Campus-Wide Lost & Found Hub
+                </div>
+                <h1 className="text-5xl md:text-7xl font-bold font-serif text-natural-dark leading-tight">
+                  Reclaiming what is <span className="italic font-light text-natural-olive">lost</span>, together.
+                </h1>
+                <p className="text-lg md:text-xl text-natural-text/80 max-w-xl leading-relaxed">
+                  LostLink connects verified students and staff in real-time. Report lost items, coordinate returns via secure chat, and build a more helpful campus community.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-2">
                   <button
-                    onClick={handleDemoLogin}
-                    className="bg-white hover:bg-natural-light text-natural-olive px-8 py-4 rounded-full font-bold border border-natural-border shadow-sm transition-all text-lg"
+                    onClick={handleLogin}
+                    className="bg-natural-olive hover:bg-natural-dark text-white px-8 py-4 rounded-full font-bold shadow-xl shadow-natural-olive/20 hover:shadow-natural-olive/30 transition-all flex items-center justify-center gap-3 text-lg active:scale-95 duration-200"
                   >
-                    Try Demo Sandbox Mode
+                    Get Started with Campus Email
+                    <ArrowRight className="w-5 h-5" />
                   </button>
-                )}
+                  {showSandbox && (
+                    <button
+                      onClick={handleDemoLogin}
+                      className="bg-white hover:bg-natural-light text-natural-olive px-8 py-4 rounded-full font-bold border border-natural-border shadow-sm transition-all text-lg active:scale-95 duration-200"
+                    >
+                      Try Demo Sandbox Mode
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+
+              {/* Dynamic Interactive Cards Preview on the Right */}
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+                className="flex-1 w-full relative max-w-md lg:max-w-none flex justify-center"
+              >
+                <div className="relative w-full max-w-[400px] h-[360px] md:h-[400px]">
+                  {/* Card 1 */}
+                  <motion.div 
+                    initial={{ rotate: -6, y: 20 }}
+                    animate={{ rotate: -8, y: 0 }}
+                    whileHover={{ rotate: -2, scale: 1.02, zIndex: 30 }}
+                    className="absolute top-4 left-4 w-72 bg-white rounded-[2rem] p-5 shadow-lg border border-natural-border/60 transition-all duration-300"
+                  >
+                    <div className="aspect-[4/3] rounded-[1.5rem] bg-natural-light overflow-hidden mb-4 relative flex items-center justify-center">
+                      <Laptop className="w-12 h-12 text-natural-olive/40" />
+                      <div className="absolute top-3 right-3 bg-natural-lost text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
+                        lost
+                      </div>
+                    </div>
+                    <h3 className="font-bold text-natural-dark text-base">MacBook Pro 14"</h3>
+                    <p className="text-xs text-natural-secondary">Engineering Building • Today</p>
+                  </motion.div>
+
+                  {/* Card 2 */}
+                  <motion.div 
+                    initial={{ rotate: 6, x: 20, y: 80 }}
+                    animate={{ rotate: 8, x: 10, y: 60 }}
+                    whileHover={{ rotate: 2, scale: 1.02, zIndex: 30 }}
+                    className="absolute top-10 right-0 w-72 bg-white rounded-[2rem] p-5 shadow-xl border border-natural-border transition-all duration-300 z-10"
+                  >
+                    <div className="aspect-[4/3] rounded-[1.5rem] bg-natural-light overflow-hidden mb-4 relative flex items-center justify-center">
+                      <Key className="w-12 h-12 text-natural-olive/40" />
+                      <div className="absolute top-3 right-3 bg-natural-olive text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
+                        found
+                      </div>
+                    </div>
+                    <h3 className="font-bold text-natural-dark text-base">Car Key Fob</h3>
+                    <p className="text-xs text-natural-secondary">Library Room 302 • Yesterday</p>
+                  </motion.div>
+                </div>
+              </motion.div>
+            </section>
+
+            {/* Statistics Section */}
+            <motion.section 
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              className="grid grid-cols-2 md:grid-cols-4 gap-8"
+            >
+              {[
+                { label: "Successful Returns", value: "98%" },
+                { label: "Students Reunited", value: "1,200+" },
+                { label: "Average Return Time", value: "< 24h" },
+                { label: "Helpful XP Earned", value: "15,000+" }
+              ].map((stat, i) => (
+                <div key={i} className="text-center p-6 bg-white rounded-3xl border border-natural-border shadow-xs hover:shadow-md transition-shadow">
+                  <p className="text-4xl md:text-5xl font-bold font-serif text-natural-olive mb-2">{stat.value}</p>
+                  <p className="text-xs md:text-sm font-bold uppercase tracking-widest text-natural-text/60">{stat.label}</p>
+                </div>
+              ))}
+            </motion.section>
+
+            {/* How it Works / Features */}
+            <section className="space-y-12">
+              <div className="text-center max-w-xl mx-auto space-y-4">
+                <h2 className="text-4xl font-bold font-serif text-natural-dark">How LostLink Works</h2>
+                <p className="text-natural-text/80">Three simple steps to return items and help our campus community remain connected.</p>
               </div>
-             </div>
-          </section>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {[
+                  {
+                    title: "1. Report the Item",
+                    desc: "Quickly post lost or found items with campus locations, photo uploads, and smart description tagging.",
+                    icon: Plus
+                  },
+                  {
+                    title: "2. Real-Time Chat",
+                    desc: "Securely message back-and-forth using direct websocket synchronization to coordinate safe meetups.",
+                    icon: MessageSquare
+                  },
+                  {
+                    title: "3. Reclaim & Earn XP",
+                    desc: "Deliver items safely, resolve reports, and climb the Top Helpers leaderboard by accumulating XP.",
+                    icon: Trophy
+                  }
+                ].map((step, i) => {
+                  const Icon = step.icon;
+                  return (
+                    <div key={i} className="bg-white rounded-[2.5rem] p-8 border border-natural-border shadow-xs hover:-translate-y-1.5 transition-all duration-300 flex flex-col items-center text-center space-y-4">
+                      <div className="w-16 h-16 rounded-3xl bg-natural-light border border-natural-border flex items-center justify-center text-natural-olive">
+                        <Icon className="w-8 h-8" />
+                      </div>
+                      <h3 className="text-xl font-bold text-natural-dark font-serif">{step.title}</h3>
+                      <p className="text-sm text-natural-text/70 leading-relaxed">{step.desc}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
         ) : currentView === 'feed' ? (
           <>
             {/* Welcome Section */}
