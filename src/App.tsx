@@ -153,8 +153,8 @@ export default function App() {
           displayName: user.displayName || 'Demo Student',
           email: user.email || 'demo@student.edu',
           photoURL: user.photoURL || '',
-          xp: 15,
-          helpfulReturns: 1
+          xp: 0,
+          helpfulReturns: 0
         };
         setUserData(initialUserData);
         localStorage.setItem('lostlink_demo_user', JSON.stringify(initialUserData));
@@ -176,8 +176,8 @@ export default function App() {
           display_name: user.displayName || 'Anonymous',
           email: user.email || '',
           photo_url: user.photoURL || '',
-          xp: 15,
-          helpful_returns: 1
+          xp: 0,
+          helpful_returns: 0
         };
         await supabase.from('profiles').insert([newProfile]);
         setUserData({
@@ -234,8 +234,8 @@ export default function App() {
           displayName: 'Demo Student',
           email: 'demo@student.edu',
           photoURL: 'https://api.dicebear.com/7.x/avataaars/svg?seed=DemoStudent',
-          xp: userData?.xp || 15,
-          helpfulReturns: userData?.helpfulReturns || 1
+          xp: userData?.xp || 0,
+          helpfulReturns: userData?.helpfulReturns || 0
         });
         return;
       }
@@ -513,7 +513,7 @@ export default function App() {
         // Award minor XP for posting
         const { error: profileErr } = await supabase
           .from('profiles')
-          .update({ xp: (userData?.xp || 15) + 5 })
+          .update({ xp: (userData?.xp || 0) + 5 })
           .eq('id', user.uid);
         
         if (profileErr) console.error('Error updating XP:', profileErr);
@@ -578,8 +578,8 @@ export default function App() {
       const { error: profileErr } = await supabase
         .from('profiles')
         .update({ 
-          xp: (userData?.xp || 15) + 50,
-          helpful_returns: (userData?.helpfulReturns || 1) + 1 
+          xp: (userData?.xp || 0) + 50,
+          helpful_returns: (userData?.helpfulReturns || 0) + 1 
         })
         .eq('id', user.uid);
       

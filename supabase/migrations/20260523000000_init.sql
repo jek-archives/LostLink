@@ -4,8 +4,8 @@ create table public.profiles (
   display_name text,
   email text,
   photo_url text,
-  xp integer default 15 not null,
-  helpful_returns integer default 1 not null,
+  xp integer default 0 not null,
+  helpful_returns integer default 0 not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -66,8 +66,8 @@ begin
     coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'display_name', 'Anonymous'),
     coalesce(new.email, ''),
     coalesce(new.raw_user_meta_data->>'avatar_url', new.raw_user_meta_data->>'photo_url', ''),
-    15,
-    1
+    0,
+    0
   )
   on conflict (id) do update set
     display_name = excluded.display_name,
