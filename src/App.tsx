@@ -108,6 +108,11 @@ export default function App() {
     date: new Date().toISOString().split('T')[0]
   });
 
+  const showSandbox = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('demo') === 'true' || params.get('sandbox') === 'true';
+  }, []);
+
   // Test Connection on Mount
   useEffect(() => {
     async function testConnection() {
@@ -808,12 +813,14 @@ export default function App() {
                   Get Started with Campus Email
                   <ArrowRight className="w-5 h-5" />
                 </button>
-                <button
-                  onClick={handleDemoLogin}
-                  className="bg-white hover:bg-natural-light text-natural-olive px-8 py-4 rounded-full font-bold border border-natural-border shadow-sm transition-all text-lg"
-                >
-                  Try Demo Sandbox Mode
-                </button>
+                {showSandbox && (
+                  <button
+                    onClick={handleDemoLogin}
+                    className="bg-white hover:bg-natural-light text-natural-olive px-8 py-4 rounded-full font-bold border border-natural-border shadow-sm transition-all text-lg"
+                  >
+                    Try Demo Sandbox Mode
+                  </button>
+                )}
               </div>
              </div>
           </section>
