@@ -8,10 +8,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, Search, MapPin, Calendar, Tag, Laptop, Shirt, Book, Key, Wallet, 
   MoreHorizontal, ChevronRight, X, AlertCircle, CheckCircle2, User as UserIcon,
-  ArrowRight, LogOut, LogIn, Loader2, Award, Trophy, Star
+  ArrowRight, LogOut, LogIn, Loader2, Award, Trophy, Star, MessageSquare
 } from 'lucide-react';
 import { LostItem, UserProfile } from './types';
 import { CATEGORIES, LOCATIONS, CAMPUS_COORDINATES } from './constants';
+
+// Custom Components
+import CampusMap from './components/CampusMap';
+import ChatModal from './components/ChatModal';
 
 // Supabase Import
 import { supabase } from './lib/supabase';
@@ -75,6 +79,8 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [isChatOpen, setIsChatOpen] = useState(false);
   
   const [currentView, setCurrentView] = useState<'feed' | 'profile' | 'item-detail'>('feed');
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
@@ -862,35 +868,54 @@ export default function App() {
 
             {/* Content Section */}
             <div className="flex flex-col gap-8">
-              <div className="flex justify-between items-end border-b border-natural-border pb-4">
+              <div className="flex flex-col sm:flex-row justify-between sm:items-end border-b border-natural-border pb-4 gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-natural-dark">Recently Reported</h2>
                   <p className="text-sm text-natural-secondary">Viewing live updates from the database</p>
                 </div>
-                <div className="flex bg-natural-light p-1 rounded-full border border-natural-border">
-                  <button
-                    onClick={() => setActiveTab('lost')}
-                    className={`px-6 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'lost' ? 'bg-natural-olive text-white shadow-sm' : 'text-natural-text hover:text-natural-olive'}`}
-                  >
-                    Lost
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('found')}
-                    className={`px-6 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'found' ? 'bg-natural-olive text-white shadow-sm' : 'text-natural-text hover:text-natural-olive'}`}
-                  >
-                    Found
-                  </button>
+                <div className="flex flex-wrap gap-2">
+                  <div className="flex bg-natural-light p-1 rounded-full border border-natural-border">
+                    <button
+                      onClick={() => setActiveTab('lost')}
+                      className={`px-6 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'lost' ? 'bg-natural-olive text-white shadow-sm' : 'text-natural-text hover:text-natural-olive'}`}
+                    >
+                      Lost
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('found')}
+                      className={`px-6 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'found' ? 'bg-natural-olive text-white shadow-sm' : 'text-natural-text hover:text-natural-olive'}`}
+                    >
+                      Found
+                    </button>
+                  </div>
+                  
+                  <div className="flex bg-natural-light p-1 rounded-full border border-natural-border">
+                    <button
+                      onClick={() => setViewMode('list')}
+                      className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${viewMode === 'list' ? 'bg-natural-olive text-white shadow-sm' : 'text-natural-text hover:text-natural-olive'}`}
+                    >
+                      List
+                    </button>
+                    <button
+                      onClick={() => setViewMode('map')}
+                      className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${viewMode === 'map' ? 'bg-natural-olive text-white shadow-sm' : 'text-natural-text hover:text-natural-olive'}`}
+                    >
+                      Map
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Items Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                {itemsLoading ? (
-                  <div className="col-span-full py-20 flex flex-col items-center gap-4 text-natural-secondary">
-                    <Loader2 className="w-8 h-8 animate-spin" />
-                    <p className="text-sm font-bold uppercase tracking-[0.2em]">Syncing items...</p>
-                  </div>
-                ) : (
+              {/* Items Container */}
+              {itemsLoading ? (
+                <div className="py-20 flex flex-col items-center gap-4 text-natural-secondary">
+                  <Loader2 className="w-8 h-8 animate-spin" />
+                  <p className="text-sm font-bold uppercase tracking-[0.2em]">Syncing items...</p>
+                </div>
+              ) : viewMode === 'map' ? (
+                <CampusMap items={filteredItems} onSelectItem={navigateToItem} />
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                   <AnimatePresence mode="popLayout">
                     {filteredItems.map((item) => (
                       <motion.div
@@ -951,8 +976,8 @@ export default function App() {
                       </motion.div>
                     ))}
                   </AnimatePresence>
-                )}
-              </div>
+                </div>
+              )}
 
               {!itemsLoading && filteredItems.length === 0 && (
                 <div className="py-20 text-center bg-white rounded-[2rem] border border-dashed border-natural-border">
@@ -1165,24 +1190,36 @@ export default function App() {
                       </p>
                     </div>
 
-                    <div className="pt-8 flex flex-col sm:flex-row gap-4">
+                    <div className="pt-8 flex flex-col gap-4">
                       {selectedItem.status === 'active' ? (
-                        <button 
-                          onClick={() => selectedItem.reporterId === user.uid ? handleResolve(selectedItem.id, selectedItem.reporterId) : handleClaim(selectedItem)}
-                          className="flex-1 py-4 bg-natural-olive hover:bg-natural-dark text-white rounded-[2rem] font-bold text-lg shadow-xl shadow-natural-olive/20 transition-all active:scale-95 flex items-center justify-center gap-3"
-                        >
-                          {selectedItem.reporterId === user.uid ? (
-                            <>
-                              <CheckCircle2 className="w-5 h-5" />
-                              Mark as Resolved
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2 className="w-5 h-5" />
-                              {selectedItem.type === 'lost' ? 'I Found This' : 'This is Mine'}
-                            </>
+                        <div className="flex flex-col sm:flex-row gap-4">
+                          <button 
+                            onClick={() => selectedItem.reporterId === user.uid ? handleResolve(selectedItem.id, selectedItem.reporterId) : handleClaim(selectedItem)}
+                            className="flex-1 py-4 bg-natural-olive hover:bg-natural-dark text-white rounded-[2rem] font-bold text-lg shadow-xl shadow-natural-olive/20 transition-all active:scale-95 flex items-center justify-center gap-3"
+                          >
+                            {selectedItem.reporterId === user.uid ? (
+                              <>
+                                <CheckCircle2 className="w-5 h-5" />
+                                Mark as Resolved
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="w-5 h-5" />
+                                {selectedItem.type === 'lost' ? 'I Found This' : 'This is Mine'}
+                              </>
+                            )}
+                          </button>
+                          
+                          {user && (
+                            <button 
+                              onClick={() => setIsChatOpen(true)}
+                              className="flex-1 py-4 bg-white hover:bg-natural-light text-natural-olive rounded-[2rem] font-bold text-lg border border-natural-border transition-all active:scale-95 flex items-center justify-center gap-3"
+                            >
+                              <MessageSquare className="w-5 h-5" />
+                              {selectedItem.reporterId === user.uid ? 'Open Coordination Chat' : 'Chat with Reporter'}
+                            </button>
                           )}
-                        </button>
+                        </div>
                       ) : (
                         <div className="flex-1 py-4 bg-emerald-50 text-emerald-600 font-bold rounded-[2rem] border border-emerald-100 text-center flex items-center justify-center gap-3">
                           <CheckCircle2 className="w-5 h-5" />
@@ -1191,7 +1228,7 @@ export default function App() {
                       )}
                       <button 
                         onClick={() => setCurrentView('feed')}
-                        className="px-8 py-4 bg-natural-light text-natural-olive font-bold rounded-[2rem] border border-natural-border hover:bg-natural-border/20 transition-colors"
+                        className="w-full py-4 bg-natural-light text-natural-olive font-bold rounded-[2rem] border border-natural-border hover:bg-natural-border/20 transition-colors"
                       >
                         Go Back
                       </button>
@@ -1475,6 +1512,19 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Chat Coordination Modal */}
+      {isChatOpen && selectedItem && (
+        <ChatModal
+          itemId={selectedItem.id}
+          itemTitle={selectedItem.title}
+          reporterId={selectedItem.reporterId}
+          reporterName={selectedItem.reporterName}
+          currentUser={user}
+          isOpen={isChatOpen}
+          onClose={() => setIsChatOpen(false)}
+        />
+      )}
       </div>
   );
 }
