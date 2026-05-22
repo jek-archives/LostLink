@@ -13,76 +13,11 @@ import {
 import { LostItem, UserProfile } from './types';
 import { CATEGORIES, LOCATIONS, CAMPUS_COORDINATES } from './constants';
 
-// Firebase Imports
-import { auth, db, storage } from './lib/firebase';
-import { 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  signOut, 
-  onAuthStateChanged, 
-  User as FirebaseUser 
-} from 'firebase/auth';
-import { 
-  collection, 
-  addDoc, 
-  onSnapshot, 
-  query, 
-  orderBy, 
-  limit,
-  Timestamp,
-  doc,
-  getDocFromServer,
-  getDoc,
-  setDoc,
-  updateDoc,
-  increment
-} from 'firebase/firestore';
+// Supabase Import
+import { supabase } from './lib/supabase';
 
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId?: string | null;
-    email?: string | null;
-    emailVerified?: boolean | null;
-    isAnonymous?: boolean | null;
-    tenantId?: string | null;
-    providerInfo?: {
-      providerId?: string | null;
-      email?: string | null;
-    }[];
-  }
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
-    },
-    operationType,
-    path
-  }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+function handleSupabaseError(error: unknown, operationType: string, path: string | null) {
+  console.error(`Supabase Error (${operationType} at ${path}):`, error);
 }
 
 const MOCK_ITEMS: LostItem[] = [
@@ -137,7 +72,7 @@ const MOCK_ITEMS: LostItem[] = [
 ];
 
 export default function App() {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   
@@ -171,11 +106,12 @@ export default function App() {
   useEffect(() => {
     async function testConnection() {
       try {
-        await getDocFromServer(doc(db, 'test', 'connection'));
-      } catch (error) {
-        if(error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Please check your Firebase configuration.");
+        const { error } = await supabase.from('profiles').select('id').limit(1);
+        if (error) {
+          console.error("Please check your Supabase configuration:", error);
         }
+      } catch (error) {
+        console.error("Supabase connection check failed:", error);
       }
     }
     testConnection();
@@ -183,11 +119,22 @@ export default function App() {
 
   // Auth Listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const u = session.user;
+        setUser({
+          uid: u.id,
+          id: u.id,
+          displayName: u.user_metadata?.full_name || u.user_metadata?.display_name || u.email?.split('@')[0] || 'User',
+          email: u.email || '',
+          photoURL: u.user_metadata?.avatar_url || '',
+        });
+      } else {
+        setUser(null);
+      }
       setAuthLoading(false);
     });
-    return () => unsubscribe();
+    return () => subscription.unsubscribe();
   }, []);
 
   // User Data Listener
@@ -215,34 +162,68 @@ export default function App() {
       return;
     }
 
-    const userRef = doc(db, 'users', user.uid);
-    
-    // Initial fetch/creation
-    const syncUser = async () => {
-      const userSnap = await getDoc(userRef);
-      if (!userSnap.exists()) {
-        const newProfile: UserProfile = {
-          displayName: user.displayName || 'Anonymous',
+    const fetchProfile = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.uid)
+        .single();
+      
+      if (error) {
+        // Fallback: create profile if not created by trigger
+        const newProfile = {
+          id: user.uid,
+          display_name: user.displayName || 'Anonymous',
           email: user.email || '',
-          photoURL: user.photoURL || '',
-          xp: 0,
-          helpfulReturns: 0
+          photo_url: user.photoURL || '',
+          xp: 15,
+          helpful_returns: 1
         };
-        await setDoc(userRef, newProfile);
-      } else {
-        // Update email if it changed or was missing
-        await updateDoc(userRef, { email: user.email || '' });
+        await supabase.from('profiles').insert([newProfile]);
+        setUserData({
+          displayName: newProfile.display_name,
+          email: newProfile.email,
+          photoURL: newProfile.photo_url,
+          xp: newProfile.xp,
+          helpfulReturns: newProfile.helpful_returns
+        });
+      } else if (data) {
+        setUserData({
+          displayName: data.display_name,
+          email: data.email,
+          photoURL: data.photo_url,
+          xp: data.xp,
+          helpfulReturns: data.helpful_returns
+        });
       }
     };
-    syncUser();
 
-    const unsubscribe = onSnapshot(userRef, (doc) => {
-      if (doc.exists()) setUserData(doc.data() as UserProfile);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
-    });
+    fetchProfile();
 
-    return () => unsubscribe();
+    const channel = supabase
+      .channel(`profile-${user.uid}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'profiles',
+        filter: `id=eq.${user.uid}`
+      }, (payload: any) => {
+        const data = payload.new;
+        if (data) {
+          setUserData({
+            displayName: data.display_name,
+            email: data.email,
+            photoURL: data.photo_url,
+            xp: data.xp,
+            helpfulReturns: data.helpful_returns
+          });
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   // Sync selected profile data
@@ -278,14 +259,53 @@ export default function App() {
         });
         return;
       }
-      const unsubscribe = onSnapshot(doc(db, 'users', selectedProfileId), (doc) => {
-        if (doc.exists()) setSelectedProfileData(doc.data() as UserProfile);
-      });
-      return () => unsubscribe();
+
+      const fetchSelectedProfile = async () => {
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', selectedProfileId)
+          .single();
+        if (data) {
+          setSelectedProfileData({
+            displayName: data.display_name,
+            email: data.email,
+            photoURL: data.photo_url,
+            xp: data.xp,
+            helpfulReturns: data.helpful_returns
+          });
+        }
+      };
+      fetchSelectedProfile();
+
+      const channel = supabase
+        .channel(`selected-profile-${selectedProfileId}`)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${selectedProfileId}`
+        }, (payload: any) => {
+          const data = payload.new;
+          if (data) {
+            setSelectedProfileData({
+              displayName: data.display_name,
+              email: data.email,
+              photoURL: data.photo_url,
+              xp: data.xp,
+              helpfulReturns: data.helpful_returns
+            });
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [selectedProfileId, userData]);
 
-  // Firestore Real-time Listener
+  // Real-time items listener
   useEffect(() => {
     if (!user) {
       setItems([]);
@@ -306,32 +326,62 @@ export default function App() {
     }
 
     setItemsLoading(true);
-    const q = query(
-      collection(db, 'items'), 
-      orderBy('createdAt', 'desc'),
-      limit(32)
-    );
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const newItems = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as LostItem[];
-      setItems(newItems);
-      setItemsLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'items');
-      setItemsLoading(false);
-    });
 
-    return () => unsubscribe();
+    const fetchItems = async () => {
+      const { data, error } = await supabase
+        .from('items')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(32);
+
+      if (error) {
+        console.error('Error fetching items:', error);
+      } else if (data) {
+        const mappedItems = data.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          category: item.category,
+          location: item.location,
+          date: item.date,
+          type: item.type,
+          reporterId: item.reporter_id,
+          reporterName: item.reporter_name,
+          reporterEmail: item.reporter_email,
+          reporterPhoto: item.reporter_photo,
+          status: item.status,
+          createdAt: new Date(item.created_at).getTime(),
+          imageUrl: item.image_url
+        }));
+        setItems(mappedItems);
+      }
+      setItemsLoading(false);
+    };
+
+    fetchItems();
+
+    const channel = supabase
+      .channel('public-items')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => {
+        fetchItems();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const handleLogin = async () => {
-    const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      showNotification('Successfully logged in!', 'success');
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin
+        }
+      });
+      if (error) throw error;
+      showNotification('Redirecting to login...', 'success');
     } catch (error) {
       console.error(error);
       showNotification('Login failed. Please try again.', 'error');
@@ -344,17 +394,15 @@ export default function App() {
       displayName: 'Demo Student',
       email: 'demo@student.edu',
       photoURL: 'https://api.dicebear.com/7.x/avataaars/svg?seed=DemoStudent',
-      emailVerified: true,
-      isAnonymous: false,
-      providerData: [],
-    } as unknown as FirebaseUser;
+    };
     setUser(mockUser);
     showNotification('Logged in with Demo Account!', 'success');
   };
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       showNotification('Logged out successfully.', 'success');
     } catch (error) {
       console.error(error);
@@ -445,11 +493,30 @@ export default function App() {
           localStorage.setItem('lostlink_demo_user', JSON.stringify(updatedUserData));
         }
       } else {
-        await addDoc(collection(db, 'items'), itemData);
+        const { error: insertErr } = await supabase.from('items').insert([{
+          title: itemData.title,
+          description: itemData.description,
+          category: itemData.category,
+          location: itemData.location,
+          date: itemData.date,
+          type: itemData.type,
+          reporter_id: itemData.reporterId,
+          reporter_name: itemData.reporterName,
+          reporter_email: itemData.reporterEmail,
+          reporter_photo: itemData.reporterPhoto,
+          status: itemData.status,
+          image_url: itemData.imageUrl
+        }]);
+
+        if (insertErr) throw insertErr;
+
         // Award minor XP for posting
-        await updateDoc(doc(db, 'users', user.uid), {
-          xp: increment(5)
-        });
+        const { error: profileErr } = await supabase
+          .from('profiles')
+          .update({ xp: (userData?.xp || 15) + 5 })
+          .eq('id', user.uid);
+        
+        if (profileErr) console.error('Error updating XP:', profileErr);
       }
 
       setIsReportModalOpen(false);
@@ -463,7 +530,7 @@ export default function App() {
         date: new Date().toISOString().split('T')[0]
       });
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'items');
+      handleSupabaseError(error, 'insert', 'items');
       showNotification('Failed to post report. Please try again.', 'error');
     } finally {
       setIsSubmitting(false);
@@ -500,19 +567,27 @@ export default function App() {
     }
 
     try {
-      await updateDoc(doc(db, 'items', itemId), {
-        status: 'resolved'
-      });
+      const { error: updateErr } = await supabase
+        .from('items')
+        .update({ status: 'resolved' })
+        .eq('id', itemId);
+
+      if (updateErr) throw updateErr;
       
       // Award major XP for resolving/returning
-      await updateDoc(doc(db, 'users', user.uid), {
-        xp: increment(50),
-        helpfulReturns: increment(1)
-      });
+      const { error: profileErr } = await supabase
+        .from('profiles')
+        .update({ 
+          xp: (userData?.xp || 15) + 50,
+          helpful_returns: (userData?.helpfulReturns || 1) + 1 
+        })
+        .eq('id', user.uid);
+      
+      if (profileErr) console.error('Error updating XP/Returns:', profileErr);
       
       showNotification('Item marked as resolved! You earned 50 XP!', 'success');
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'items');
+      handleSupabaseError(error, 'update', 'items');
     }
   };
 
