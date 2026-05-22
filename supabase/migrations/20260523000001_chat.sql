@@ -19,12 +19,26 @@ create policy "Allow users to send messages" on public.messages
   for insert with check (auth.uid() = sender_id);
 
 -- Enable Realtime replication for items and messages tables
-begin;
-  -- Remove them if they already exist in publication to avoid errors
-  alter publication supabase_realtime drop table if exists public.items;
-  alter publication supabase_realtime drop table if exists public.messages;
-  
-  -- Add tables to supabase_realtime publication
-  alter publication supabase_realtime add table public.items;
-  alter publication supabase_realtime add table public.messages;
-commit;
+do $$
+begin
+  -- Add items table if not already present
+  if not exists (
+    select 1 from pg_publication_rel pr 
+    join pg_class c on pr.prrelid = c.oid 
+    join pg_publication p on pr.prpubid = p.oid 
+    where p.pubname = 'supabase_realtime' and c.relname = 'items'
+  ) then
+    alter publication supabase_realtime add table public.items;
+  end if;
+
+  -- Add messages table if not already present
+  if not exists (
+    select 1 from pg_publication_rel pr 
+    join pg_class c on pr.prrelid = c.oid 
+    join pg_publication p on pr.prpubid = p.oid 
+    where p.pubname = 'supabase_realtime' and c.relname = 'messages'
+  ) then
+    alter publication supabase_realtime add table public.messages;
+  end if;
+end;
+$$;
