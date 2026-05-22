@@ -776,12 +776,14 @@ export default function App() {
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <button
-                  onClick={handleDemoLogin}
-                  className="hidden sm:block text-xs font-black uppercase tracking-widest text-natural-olive hover:underline"
-                >
-                  Demo Login
-                </button>
+                {showSandbox && (
+                  <button
+                    onClick={handleDemoLogin}
+                    className="hidden sm:block text-xs font-black uppercase tracking-widest text-natural-olive hover:underline"
+                  >
+                    Demo Login
+                  </button>
+                )}
                 <button
                   onClick={handleLogin}
                   className="bg-natural-olive hover:bg-natural-olive/90 text-white px-6 py-2.5 rounded-full font-semibold shadow-sm transition-all active:scale-95 flex items-center gap-2"
