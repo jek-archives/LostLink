@@ -17,3 +17,14 @@ create policy "Allow authenticated users to read messages" on public.messages
 
 create policy "Allow users to send messages" on public.messages
   for insert with check (auth.uid() = sender_id);
+
+-- Enable Realtime replication for items and messages tables
+begin;
+  -- Remove them if they already exist in publication to avoid errors
+  alter publication supabase_realtime drop table if exists public.items;
+  alter publication supabase_realtime drop table if exists public.messages;
+  
+  -- Add tables to supabase_realtime publication
+  alter publication supabase_realtime add table public.items;
+  alter publication supabase_realtime add table public.messages;
+commit;
