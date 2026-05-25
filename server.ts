@@ -32,8 +32,10 @@ async function startServer() {
     }
 
     if (!process.env.CLOUDINARY_CLOUD_NAME) {
-      console.warn("Cloudinary not configured. Returning fallback image.");
-      return res.json({ url: "https://images.unsplash.com/photo-1540340334550-8015170a09d9?q=80&w=2070&auto=format&fit=crop" });
+      console.warn("Cloudinary not configured. Returning base64 data URL of the uploaded image.");
+      const base64Image = req.file.buffer.toString("base64");
+      const dataUrl = `data:${req.file.mimetype};base64,${base64Image}`;
+      return res.json({ url: dataUrl });
     }
 
     const uploadStream = cloudinary.uploader.upload_stream(

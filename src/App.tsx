@@ -71,7 +71,7 @@ const MOCK_ITEMS: LostItem[] = [
     reporterPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Michael',
     status: 'active',
     createdAt: Date.now() - 3600000 * 24,
-    imageUrl: 'https://images.unsplash.com/photo-1627124118123-e4d30009d170?q=80&w=800&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1590534247854-e97d5e3feef6?q=80&w=800&auto=format&fit=crop'
   }
 ];
 
@@ -448,8 +448,11 @@ export default function App() {
     try {
       let finalImageUrl = '';
 
-      // Upload image to Cloudinary via backend
-      if (imageFile) {
+      if (user.uid === 'demo-student-123') {
+        // Sandbox mode: use base64 image preview directly to bypass server calls
+        finalImageUrl = imagePreview || `https://picsum.photos/seed/${Math.random()}/400/300`;
+      } else if (imageFile) {
+        // Upload image to Cloudinary (or fallback base64 data URL) via backend
         const formData = new FormData();
         formData.append('image', imageFile);
         
@@ -463,11 +466,11 @@ export default function App() {
             finalImageUrl = uploadData.url;
           } else {
             console.error("Upload failed:", uploadData.error);
-            finalImageUrl = `https://picsum.photos/seed/${Math.random()}/400/300`;
+            finalImageUrl = imagePreview || `https://picsum.photos/seed/${Math.random()}/400/300`;
           }
         } catch (uploadErr) {
           console.error("Upload error:", uploadErr);
-          finalImageUrl = `https://picsum.photos/seed/${Math.random()}/400/300`;
+          finalImageUrl = imagePreview || `https://picsum.photos/seed/${Math.random()}/400/300`;
         }
       } else {
         // Fallback for demo purposes if no image uploaded
@@ -608,33 +611,84 @@ export default function App() {
       return;
     }
 
+    // 1. Open coordination chat modal and insert message locally/Supabase immediately
     try {
-      // Trigger email notification to the reporter
-      const response = await fetch('/api/send-notification', {
+      const systemMsgContent = item.type === 'lost'
+        ? `👋 Hi ${item.reporterName}! I found your item "${item.title}". Let's coordinate returning it here.`
+        : `👋 Hi ${item.reporterName}! I believe the "${item.title}" you found is mine. Let's coordinate returning it here.`;
+
+      if (user.uid === 'demo-student-123') {
+        // Sandbox mode: insert to localStorage chat thread
+        const chatKey = `lostlink_chat_${item.id}`;
+        const localMsgs = JSON.parse(localStorage.getItem(chatKey) || '[]');
+        
+        // Prevent duplicate messages
+        if (!localMsgs.some((m: any) => m.sender_id === user.uid && m.content.includes(item.title))) {
+          const newMsg = {
+            id: `sandbox-notif-${Date.now()}`,
+            item_id: item.id,
+            sender_id: user.uid,
+            sender_name: user.displayName || 'Demo Student',
+            content: systemMsgContent,
+            created_at: new Date().toISOString()
+          };
+          localStorage.setItem(chatKey, JSON.stringify([...localMsgs, newMsg]));
+        }
+      } else {
+        // Live Supabase mode: check if communication already exists to prevent duplicate notifications
+        const { data: existingMessages } = await supabase
+          .from('messages')
+          .select('id')
+          .eq('item_id', item.id)
+          .eq('sender_id', user.uid)
+          .limit(1);
+
+        if (!existingMessages || existingMessages.length === 0) {
+          const { error: insertMsgErr } = await supabase
+            .from('messages')
+            .insert([{
+              item_id: item.id,
+              sender_id: user.uid,
+              sender_name: user.displayName || 'Anonymous',
+              content: systemMsgContent
+            }]);
+          if (insertMsgErr) console.error("Error creating chat notification:", insertMsgErr);
+        }
+      }
+
+      // Open coordination chat modal automatically
+      setSelectedItemId(item.id);
+      setIsChatOpen(true);
+      showNotification(`Claim initiated! Opening coordination chat.`, 'success');
+    } catch (chatErr) {
+      console.error("Failed to initialize coordination chat:", chatErr);
+      showNotification('Failed to start coordination chat.', 'error');
+    }
+
+    // 2. Trigger email notification in the background (fire-and-forget so server errors don't block the UI)
+    if (item.reporterEmail) {
+      fetch('/api/send-notification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: item.reporterEmail || '',
+          to: item.reporterEmail,
           itemName: item.title,
           type: item.type,
           reporterName: item.reporterName,
           claimerName: user.displayName || 'A student'
         })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          console.log(`Email notification sent to ${item.reporterName}.`);
+        } else {
+          console.warn(`Email notice status: ${data.message}`);
+        }
+      })
+      .catch(err => {
+        console.error("Background email notification failed:", err);
       });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        showNotification(`Notification sent to ${item.reporterName}!`, 'success');
-      } else {
-        showNotification(`Notification alert sent to ${item.reporterName}`, 'success');
-      }
-
-      // If it's a "Found" item and user is claiming it back, we don't automatically resolve it
-      // The reporter must still mark it as resolved in this app's logic flow.
-    } catch (err) {
-      console.error(err);
-      showNotification('Notification request sent.', 'success');
     }
   };
 
@@ -666,19 +720,78 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File): Promise<{ file: File; dataUrl: string }> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 600;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          // Compress to JPEG with 0.7 quality
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          
+          // Convert back to File
+          const arr = dataUrl.split(',');
+          const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+          const bstr = atob(arr[1]);
+          let n = bstr.length;
+          const u8arr = new Uint8Array(n);
+          while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+          }
+          const blob = new Blob([u8arr], { type: mime });
+          const compressedFile = new File([blob], file.name, { type: mime });
+          
+          resolve({ file: compressedFile, dataUrl });
+        };
+        img.onerror = () => {
+          resolve({ file, dataUrl: event.target?.result as string });
+        };
+      };
+      reader.onerror = () => {
+        resolve({ file, dataUrl: '' });
+      };
+    });
+  };
+
+  const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        showNotification('File size too large (max 5MB)', 'error');
-        return;
+      setIsSubmitting(true);
+      try {
+        const { file: compressedFile, dataUrl } = await compressImage(file);
+        setImageFile(compressedFile);
+        setImagePreview(dataUrl);
+      } catch (err) {
+        console.error("Image compression error:", err);
+        showNotification("Failed to process image.", "error");
+      } finally {
+        setIsSubmitting(false);
       }
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
     }
   };
 
